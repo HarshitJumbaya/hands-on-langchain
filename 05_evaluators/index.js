@@ -6,6 +6,9 @@ import { wrapOpenAI } from "langsmith/wrappers";
 import { traceable } from "langsmith/traceable";
 import { Client } from "langsmith";
 import { evaluate } from "langsmith/evaluation";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
 
 const langsmith = new Client();
 const client = wrapOpenAI(new OpenAI());
@@ -77,11 +80,11 @@ function correctLabel(rootRun, example) {
 
 // The function calls labelText with inputs["input"] as the argument.
 // inputs["input"] accesses the property input from the inputs object.
-// await evaluate((inputs) => labelText(inputs["input"]), {
-//   data: datasetName,
-//   evaluators: [correctLabel],
-//   experimentPrefix: "Toxic Queries",
-// });
+await evaluate((inputs) => labelText(inputs["input"]), {
+  data: datasetName,
+  evaluators: [correctLabel],
+  experimentPrefix: "Toxic Queries",
+});
 
 //  Evaluate on a particular version of a dataset
 await evaluate((inputs) => labelText(inputs["input"]), {
@@ -111,5 +114,33 @@ await evaluate((inputs) => labelText(inputs["input"]), {
   data: datasetName,
   evaluators: [correctLabel],
   summaryEvaluators: [summaryEval],
+  experimentPrefix: "Toxic Queries",
+});
+
+
+
+const prompt = ChatPromptTemplate.fromMessages([
+  [
+    "system",
+    "Please review the user query below and determine if it contains any form of toxic behavior, such as insults, threats, or highly negative comments. Respond with 'Toxic' if it does, and 'Not toxic' if it doesn't.",
+  ],
+  ["user", "{text}"],
+]);
+const chatModel = new ChatOpenAI();
+const outputParser = new StringOutputParser();
+
+const formatChat = await prompt.format({
+  text: "You are a beautiful creature."
+})
+// const chain = prompt.pipe(chatModel).pipe(outputParser);
+const response = await chatModel.invoke(formatChat);
+const response2 = await outputParser.invoke(response);
+// console.log("chain:  " , chain);
+console.log("response 2:  ", response2);
+console.log("hello  ");
+
+await evaluate(response2, {
+  data: datasetName,
+  evaluators: [correctLabel],
   experimentPrefix: "Toxic Queries",
 });
